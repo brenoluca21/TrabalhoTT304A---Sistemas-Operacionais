@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#define n 3
+#define n 1000
 
 int main(){
     int i, j;
