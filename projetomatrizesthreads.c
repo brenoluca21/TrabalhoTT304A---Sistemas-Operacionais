@@ -124,6 +124,11 @@ void somaTotal(int *matrizA, int *matrizB, int *matrizD, int n, int nthreads){
     int tamanho = n*n;
     int elementosPorThread = tamanho/nthreads;
 
+    if (tamanho % nthreads != 0){
+    fprintf(stderr,"O tamanho nao e divisivel pelo numero de threads\n");
+    exit(EXIT_FAILURE);
+  }
+
     for (i = 0; i < nthreads; i++) {
         parametros[i].inicio = elementosPorThread * i;
         parametros[i].final = (i == nthreads - 1) ? (n * n) : elementosPorThread * (i + 1);
@@ -147,6 +152,11 @@ void multiplicacaoTotal(int *matrizC, int *matrizD, int *matrizE, int n, int nth
     register unsigned int i;
     int tamanho = n*n;
     int elementosPorThread = tamanho/nthreads;
+
+    if (tamanho % nthreads != 0){
+    fprintf(stderr,"O tamanho nao e divisivel pelo numero de threads\n");
+    exit(EXIT_FAILURE);
+  }
 
     for (i = 0; i < nthreads; i++) {
         parametros[i].inicio = elementosPorThread * i;
@@ -174,6 +184,11 @@ int reducaoTotal(int *matrizE, unsigned int n, unsigned int nthreads){
   int err;
   int tamanho = n*n;
   int elementosPorThread = tamanho/nthreads;
+
+  if (tamanho % nthreads != 0){
+    fprintf(stderr,"O tamanho nao e divisivel pelo numero de threads\n");
+    exit(EXIT_FAILURE);
+  }
 
   for (i=0; i<nthreads; i++){
     parametros[i].inicio = elementosPorThread * i;
@@ -204,8 +219,8 @@ int reducaoTotal(int *matrizE, unsigned int n, unsigned int nthreads){
   return soma;
 }
 
-//Função para ler os arquivos das matrizes
-void *lerMatriz(void *args){
+//Função para ler os arquivos das matrizes utilizando threads
+void *lerMatrizThread(void *args){
     unsigned int i, aux;
     int *matriz;
     char *nomematriz;
@@ -229,8 +244,49 @@ void *lerMatriz(void *args){
     pthread_exit(NULL);
 }
 
-//Função para gravar as matrizes em um arquivo
-void *gravarMatriz(void *args){
+//Função para ler os arquivos das matrizes normalmente
+void lerMatriz(char *nomematriz, int *matriz, int n){
+    int i;
+    int aux;
+
+    FILE *arqmatriz;
+    arqmatriz = fopen(nomematriz, "r");
+    if (arqmatriz == NULL) {
+        printf("Erro ao abrir o arquivo %s.\n", nomematriz);
+        exit(1);
+    }
+
+    for (i = 0; i < n * n; i++){
+        fscanf(arqmatriz, "%d", &aux);
+        matriz[i] = aux;
+    }
+    fclose(arqmatriz);
+}
+
+
+//Função para gravar a matriz em um arquivo normalmente
+void gravarMatriz(char *nomeArquivo, int *matriz, int n){
+    int i;
+    int j;
+
+    FILE *arqmatriz;
+    arqmatriz = fopen(nomeArquivo, "w");
+    if (arqmatriz == NULL) {
+        printf("Erro ao abrir o arquivo %s.\n", nomeArquivo);
+        exit(1);
+    }
+    for (i = 0; i < n; i++){
+        for (j = 0; j < n; j++) {
+            fprintf(arqmatriz, "%d ", matriz[i * n + j]);
+        }
+        fprintf(arqmatriz, "\n");
+    }
+    fclose(arqmatriz);
+}
+
+
+//Função para gravar as matrizes em um arquivo utilizando threads
+void *gravarMatrizThread(void *args){
     register unsigned int i, j;
     int *matriz;
     char *nomematriz;
@@ -258,14 +314,14 @@ void *gravarMatriz(void *args){
 
 //Passo 1
 //Função que irá realizar as leituras simultaneas da matriz A e B  
-void lerMatrizesAeB(int *matrizA, char *nomearqA, int *matrizB, char *nomearqB, int n){
+void lerMatrizThreadesAeB(int *matrizA, char *nomearqA, int *matrizB, char *nomearqB, int n){
     pthread_t leituraA, leituraB;
 
     parametrosArquivo parametrosA = {matrizA, nomearqA, n};
     parametrosArquivo parametrosB = {matrizB, nomearqB, n};
 
-    pthread_create(&leituraA, NULL, lerMatriz, &parametrosA);
-    pthread_create(&leituraB, NULL, lerMatriz, &parametrosB);
+    pthread_create(&leituraA, NULL, lerMatrizThread, &parametrosA);
+    pthread_create(&leituraB, NULL, lerMatrizThread, &parametrosB);
 
     pthread_join(leituraA, NULL);
     pthread_join(leituraB, NULL);
@@ -273,14 +329,14 @@ void lerMatrizesAeB(int *matrizA, char *nomearqA, int *matrizB, char *nomearqB, 
 
 //Passo 3 e Passo 4
 //Função para gravar a matrizD e ler a matrizC simultaneamente
-void gravarMatrizDLerMatrizC(int *matrizD, char *nomearqD, int *matrizC, char *nomearqC, int n){
+void gravarMatrizThreadDlerMatrizThreadC(int *matrizD, char *nomearqD, int *matrizC, char *nomearqC, int n){
     pthread_t gravacaoD, leituraC;
 
     parametrosArquivo parametrosD = {matrizD, nomearqD, n};
     parametrosArquivo parametrosC = {matrizC, nomearqC, n};
 
-    pthread_create(&gravacaoD, NULL, gravarMatriz, &parametrosD);
-    pthread_create(&leituraC, NULL, lerMatriz, &parametrosC);
+    pthread_create(&gravacaoD, NULL, gravarMatrizThread, &parametrosD);
+    pthread_create(&leituraC, NULL, lerMatrizThread, &parametrosC);
 
     pthread_join(gravacaoD, NULL);
     pthread_join(leituraC, NULL);
@@ -288,13 +344,13 @@ void gravarMatrizDLerMatrizC(int *matrizD, char *nomearqD, int *matrizC, char *n
 
 //Passo 6 e Passo 7
 //Função para gravar matrizE e realizar a Redução da matrizE simultaneamente 
-void gravarMatrizEeReducao(int *matrizE, char *nomearqE, int n, int nthreads, int *reducao, double *tempored){
+void gravarMatrizThreadEeReducao(int *matrizE, char *nomearqE, int n, int nthreads, int *reducao, double *tempored){
     pthread_t gravacaoE;
     clock_t iniciofunc, fimfunc;
 
     parametrosArquivo parametrosE = {matrizE, nomearqE, n};
 
-    pthread_create(&gravacaoE, NULL, gravarMatriz, &parametrosE);
+    pthread_create(&gravacaoE, NULL, gravarMatrizThread, &parametrosE);
 
     //Iniciando contagem de tempo para a função de redução
     iniciofunc = clock();
@@ -304,6 +360,7 @@ void gravarMatrizEeReducao(int *matrizE, char *nomearqE, int n, int nthreads, in
     *tempored = ((double)(fimfunc - iniciofunc)) / CLOCKS_PER_SEC;
     pthread_join(gravacaoE, NULL);
 }
+
 
 //Função Main
 int main(int argc, char *argv[]){
@@ -325,16 +382,13 @@ int main(int argc, char *argv[]){
 
     //Declaração das variáveis para o cálculo de tempo
     clock_t iniciofunc, fimfunc, inicioprog, fimprog;
-    double tempoSoma, tempoMultiplicacao, tempoTotal;
+    double tempoSoma, tempoMultiplicacao, tempoReducao, tempoTotal;
 
+    //Caso tenha sido escolhido uma unica thread
+    if(nthreads == 1){
     //Inicio da contagem do tempo para o programa inteiro
     inicioprog = clock();
 
-    //Verificação se o tamanho das matrizes é divisivel pelo numero de threads escolhido
-    if ((n*n) % nthreads != 0){
-    fprintf(stderr,"O tamanho nao e divisivel pelo numero de threads\n");
-    exit(EXIT_FAILURE);
-  }
     //Alocação dinâmica das matrizes
     valoresmatrizA = alocaMatriz(n);
     valoresmatrizB = alocaMatriz(n);
@@ -342,9 +396,87 @@ int main(int argc, char *argv[]){
     valoresmatrizD = alocaMatriz(n);
     valoresmatrizE = alocaMatriz(n);
 
+    //Passo 1
+    //Leitura dos arquivos das matrizes A e B
+    lerMatriz(nomematrizA, valoresmatrizA, n);
+    lerMatriz(nomematrizB, valoresmatrizB, n);
+
+    //Passo 2
+    //Iniciando contagem de tempo para a função de soma
+    iniciofunc = clock();
+    //Somando as matrizes A e B e guardando o resultado na matriz D
+    somaTotal(valoresmatrizA, valoresmatrizB, valoresmatrizD, n, nthreads);
+    fimfunc = clock();
+    //Finalizando contagem de tempo para a função de soma
+    tempoSoma = ((double)(fimfunc - iniciofunc)) / CLOCKS_PER_SEC;
+
+    //Passo 3
+    //Gravando os valores da Matriz D em um arquivo
+    gravarMatriz(nomematrizD, valoresmatrizD, n);
+
+    //Passo 4
+    //Leitura do arquivo da matriz C
+    lerMatriz(nomematrizC, valoresmatrizC, n);
+
+    //Passo 5
+    //Iniciando contagem de tempo para a função de multiplicação
+    iniciofunc = clock();
+    //Multiplicando as matrizes C e D e guardando o resultado na matriz E
+    multiplicacaoTotal(valoresmatrizC, valoresmatrizD, valoresmatrizE, n, nthreads);
+    fimfunc = clock();
+    //Finalizando contagem de tempo para a função de multplicação
+    tempoMultiplicacao = ((double)(fimfunc - iniciofunc)) / CLOCKS_PER_SEC;
+
+    //Passo 6
+    //Gravando os valores da matriz E em um arquivo
+    gravarMatriz(nomematrizE, valoresmatrizE, n);
+
+    //Passo 7
+    //Iniciando contagem de tempo para a função de redução
+    iniciofunc = clock();
+    //Reduzindo a matriz E
+    int reducao = reducaoTotal(valoresmatrizE, n, nthreads);
+    fimfunc = clock();
+    //Finalizando contagem de tempo para a função de redução
+    tempoReducao = ((double)(fimfunc - iniciofunc)) / CLOCKS_PER_SEC;
+
+    //Liberando a memória da alocação dinâmica das matrizes
+    free(valoresmatrizA);
+    free(valoresmatrizB);
+    free(valoresmatrizC);
+    free(valoresmatrizD);
+    free(valoresmatrizE);
+
+    //Finalizando a contagem de tempo do programa
+    fimprog = clock();
+    tempoTotal = ((double)(fimprog - inicioprog)) / CLOCKS_PER_SEC;
+
+    // Imprimindo os resultados
+    printf("Reducao: %d\n", reducao);
+    printf("Tempo soma: %.3f segundos.\n", tempoSoma);
+    printf("Tempo multiplicacao: %.3f segundos.\n", tempoMultiplicacao);
+    printf("Tempo reducao: %.3f segundos.\n", tempoReducao);
+    printf("Tempo total: %.3f segundos.\n", tempoTotal);
+
+    }
+
+    //Caso tenha sido passado mais de uma thread
+    if(nthreads > 1){
+    //Inicio da contagem do tempo para o programa inteiro
+    inicioprog = clock();
+
+    //Alocação dinâmica das matrizes
+    valoresmatrizA = alocaMatriz(n);
+    valoresmatrizB = alocaMatriz(n);
+    valoresmatrizC = alocaMatriz(n);
+    valoresmatrizD = alocaMatriz(n);
+    valoresmatrizE = alocaMatriz(n);
+
+    //Passo 1
     //Leitura dos arquivos das matrizes A e B simultaneamnete
-    lerMatrizesAeB(valoresmatrizA, nomematrizA, valoresmatrizB, nomematrizB, n);
+    lerMatrizThreadesAeB(valoresmatrizA, nomematrizA, valoresmatrizB, nomematrizB, n);
     
+    //Passo 2
     //Iniciando contagem de tempo para a função de soma
     iniciofunc = clock();
     //Somando as matrizes A e B e guardando o resultado na matriz D
@@ -353,9 +485,11 @@ int main(int argc, char *argv[]){
     fimfunc = clock();
     tempoSoma = ((double)(fimfunc - iniciofunc)) / CLOCKS_PER_SEC;
 
+    //Passo 3 e Passo 4
     //Gravando os valores da Matriz D em um arquivo e Lendo o arquivo da matrizC
-    gravarMatrizDLerMatrizC(valoresmatrizD, nomematrizD, valoresmatrizC, nomematrizC, n);
+    gravarMatrizThreadDlerMatrizThreadC(valoresmatrizD, nomematrizD, valoresmatrizC, nomematrizC, n);
 
+    //Passo 5
     //Iniciando contagem de tempo para a função de multiplicação
     iniciofunc = clock();
     //Multiplicando as matrizes C e D e guardando o resultado na matriz E
@@ -364,11 +498,13 @@ int main(int argc, char *argv[]){
     fimfunc = clock();
     tempoMultiplicacao = ((double)(fimfunc - iniciofunc)) / CLOCKS_PER_SEC;
 
+    //Passo 6 e Passo 7
     //Gravando os valores da matriz E em um arquivo e reduzindo a matriz E simultanemante
     int reducao;
     double temporeducao;
     //Calculo da função redução esta sendo calculado dentro desta função
-    gravarMatrizEeReducao(valoresmatrizE, nomematrizE, n, nthreads, &reducao, &temporeducao);
+    //Tempo total para a função de redução tambem esta sendo calculado dentro da funçãp
+    gravarMatrizThreadEeReducao(valoresmatrizE, nomematrizE, n, nthreads, &reducao, &temporeducao);
 
 
     //Liberando a memória da alocação dinâmica das matrizes
@@ -388,6 +524,8 @@ int main(int argc, char *argv[]){
     printf("Tempo multiplicacao: %.3f segundos.\n", tempoMultiplicacao);
     printf("Tempo reducao: %.3f segundos.\n", temporeducao);
     printf("Tempo total: %.3f segundos.\n", tempoTotal);
+
+    }
 
     return 0;
 }
