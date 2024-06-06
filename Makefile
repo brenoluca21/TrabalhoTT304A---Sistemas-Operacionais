@@ -1,7 +1,7 @@
-EXEC: projeto
-CC: gcc
+EXEC = projeto
+CC = gcc
 SRCS = projetosomain.c projetoso.c
-CFLAGS: -Wall -pthread
+CFLAGS = -Wall -pthread
 
 all: $(EXEC)
 
