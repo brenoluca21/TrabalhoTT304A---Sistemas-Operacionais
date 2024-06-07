@@ -42,7 +42,7 @@ void *somaParcial(void *args){
 
 //Função multiplicação parcial para ser executada em uma unica thread
 void *multiplicacaoParcial(void *args){
-    register unsigned int i, inicio, final, j, k;
+    register unsigned int i, inicio, final, k;
     int *matrizC;
     int *matrizD;
     int *matrizE;
@@ -55,11 +55,11 @@ void *multiplicacaoParcial(void *args){
     matrizE = ((parametrosThread *)args)->matrizE;
     n = ((parametrosThread *)args)->n;
 
-    for (int i = inicio; i <= final; i++){
+    for (i = inicio; i <= final; i++){
         int lin = i / n;
         int col = i % n;
         int aux = 0;
-        for (int k = 0; k < n; k++) {
+        for (k = 0; k < n; k++) {
     //Realizando a multiplicação da linha da matrizC pela coluna da matrizD
             aux += matrizC[lin * n + k] * matrizD[k * n + col];
         }
