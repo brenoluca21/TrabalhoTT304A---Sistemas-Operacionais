@@ -6,8 +6,7 @@ CFLAGS = -Wall -pthread
 all: $(EXEC)
 
 $(EXEC) : $(SRCS)
-	$(CC) -o $(CFLAGS) $(EXEC) $(SRCS) 
+	$(CC) $(CFLAGS) -o $(EXEC) $(SRCS)
 
 clean:
 	rm -f $(EXEC)
-
